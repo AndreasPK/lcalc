@@ -1,13 +1,13 @@
 import Test.HUnit
-import Lib
+import Parser
 import Interpreter
 
 makeTest :: String -> String -> Int -> Test
 makeTest testName code result =
   TestCase (
     assertEqual testName
-    (run code)
     (Value result)
+    (run code)
   )
 
 substitionTest1 =
@@ -41,13 +41,14 @@ testBuiltin = TestList
   , makeTest "builtin:add" "add 1 2" 3
   ]
 
-testLet = TestList
+testLets = TestList
   [ makeTest "let" "let x = 1 in x + x" 2
+  , makeTest "letrec" "letrec f = (\\x -> if (x == 0) 0 (f (x-1))) in f 1" 0
   ]
 
 
 
 main :: IO ()
 main = do
-  fails <- runTestTT $ TestList [substitionTest1, higherOrderTest1, multiApply, multiVar, app2, ytest, recursion, recursion2, testBuiltin, testLet]
+  fails <- runTestTT $ TestList [substitionTest1, higherOrderTest1, multiApply, multiVar, app2, ytest, recursion, recursion2, testBuiltin, testLets]
   print fails

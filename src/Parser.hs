@@ -1,6 +1,6 @@
 {-|
 Module      : Lib
-Description : Terrible parser for a simple Lambda-Calculus
+Description : Terrible parser for a simple Lambda-Calculus based language
 Copyright   : (c) Andreas Klebinger, 2017
 License     : GPL-3
 Stability   : experimental
@@ -8,7 +8,7 @@ Portability :
 
 -}
 
-module Lib(parseCode, Expression(..), Var) where
+module Parser(parseCode, Expression(..), Var) where
 
 import Text.ParserCombinators.ReadP as ReadP
 import Data.Char
@@ -68,7 +68,7 @@ opsymbol = ['+', '-', '/', '*', '=']
 
 --Find a way to put app at the start of the list
 expression :: ReadP.ReadP Expression
-expression = opexpr <++ papp <++ ((skipSpaces >> braced expression <* skipSpaces) <++ letp <++ lambda <++ builtin <++ opexpr <++ variable <++ value) <* skipSpaces
+expression = opexpr <++ letrecp <++ papp <++ ((skipSpaces >> braced expression <* skipSpaces) <++ letp <++ lambda <++ builtin <++ opexpr <++ variable <++ value) <* skipSpaces
 
 opexpr :: ReadP.ReadP Expression
 opexpr = pure Op <*> sexpr <* skipSpaces <*> oplit <*> expression

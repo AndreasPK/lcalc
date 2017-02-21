@@ -1,7 +1,7 @@
 module Main where
 
 import Text.ParserCombinators.ReadP as ReadP
-import Lib (Expression(..), parseCode, Var)
+import Parser (Expression(..), parseCode, Var)
 import Interpreter
 import Debug.Trace
 import Data.Function

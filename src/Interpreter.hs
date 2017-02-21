@@ -1,7 +1,7 @@
 module Interpreter where
 
 import Text.ParserCombinators.ReadP as ReadP
-import Lib (Expression(..), parseCode, Var)
+import Parser (Expression(..), parseCode, Var)
 import Debug.Trace
 import Data.Function
 import Data.Maybe
@@ -109,9 +109,12 @@ eval e@Op {} = evalOp e
 eval e@(Variable name) = Variable name
 --eval x = error $ "Expression should have been replaced by beta reduction: " ++ show x
 
+
 evalLetRec :: Expression -> Expression
-evalLetRec (LetRec var e body) =
-  undefined
+evalLetRec (LetRec var def body) =
+  app (Lambda (Just var) body) (app y (Lambda (Just var) def))
+  where
+    y = simplify $ parseCode "(\\f -> (\\x -> f (x x)) (\\x -> f (x x)))"
 
 app :: Expression -> Expression -> Expression
 app f arg = App f $ Just arg
@@ -128,6 +131,29 @@ eval' e@Value {} = e
 eval' e = efix e
 
 run = eval' . parseCode
+
+findFree :: Expression -> [String]
+findFree (Value _) = []
+findFree (Lambda (Just var) body) = filter (/= var) $ findFree body
+findFree (Lambda Nothing body) = findFree body
+findFree (App f a) = findFree f ++ maybe [] findFree a
+findFree (Variable v) = [v]
+findFree (Let v def body) = findFree def ++ filter (/= v) (findFree body)
+findFree (LetRec v def body) = findFree def ++ filter (/= v) (findFree body)
+findFree (Builtin name es) = concatMap findFree es
+findFree (Op e1 op e2) = findFree e1 ++ findFree e2
+
+
+{-
+  Value { val :: Int } |
+  Lambda { lvars :: Maybe Var, lbody :: Expression} |
+  App {func :: Expression, arg :: Maybe Expression} |
+  Variable { name :: Var } |
+  Let Var Expression Expression |
+  LetRec Var Expression Expression |
+  Builtin String [Expression] |
+  Op Expression String Expression |
+-}
 
 isFunction :: Expression -> Bool
 isFunction Lambda {} = True
