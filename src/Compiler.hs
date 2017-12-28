@@ -76,7 +76,6 @@ substitute vname expr (App f arg) = App (substitute vname expr f) (substitute vn
 substitute vname expr e@(Variable v) = if v == vname then expr else e
 substitute vname expr e@(Builtin n) = e
 
-
 compile :: Parser.Expression -> Expression
 compile (Parser.Value x) = Value x
 compile (Parser.Lambda var body) = Lambda (fromMaybe "" var) (compile body)

@@ -128,7 +128,6 @@ app f arg = App f $ Just arg
 apps :: Expression -> [Expression] -> Expression
 apps = foldl (\e a -> App e (Just a))
 
-
 efix :: Expression -> Expression
 efix e = if eval e == e
             then e
