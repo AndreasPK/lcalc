@@ -41,6 +41,7 @@ satisfyp cond p = do
   if cond e then return e else mzero
 
 type Var = String
+type Vars = [String]
 
 data Expression =
   Value { val :: Int } |

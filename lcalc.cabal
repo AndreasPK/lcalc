@@ -14,12 +14,16 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:      src
-  exposed-modules:     Parser, Compiler, Interpreter
+  hs-source-dirs:      src, codegen
+  exposed-modules:     
+    Parser, Compiler, Interpreter, CompTypes, SuperConv
+
   build-depends:       base >= 4.7 && < 5
                       ,containers
                       ,QuickCheck
                       ,prettyprinter
+                      ,vector
+                      ,mtl
   default-language:    Haskell2010
 
 executable lcalc-exe

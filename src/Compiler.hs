@@ -16,13 +16,12 @@ Portability :
 
 module Compiler where
 
-import qualified Parser (Expression(..), Var, parseCode)
+import qualified Parser (Expression(..), parseCode)
 import Parser (Var)
 import Data.Maybe
-import qualified Data.Sequence as S
+import qualified Data.Sequence as S ()
 import GHC.Generics
 import Test.QuickCheck
-import Control.Applicative
 import Debug.Trace
 import Data.Text.Prettyprint.Doc hiding ((<>))
 import Data.Monoid
@@ -30,17 +29,17 @@ import Data.Monoid
 
 data Expression =
   Value Int |
-  Lambda Var Expression |
+  Lambda [Var] Expression |
   App Expression Expression |
   Variable Var |
   Builtin String |
   Bottom
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Ord, Generic)
 
 instance Pretty Expression where
   pretty (Value i) = pretty i
-  pretty (Lambda var expr) = parens ("\\" <> pretty var <+> "->" <+> nest 4 ( softline <> pretty expr))
-  pretty (App inner@(App e1 e2) e3) = pretty inner <+> pretty e3
+  pretty (Lambda vars expr) = parens ("\\" <> pretty vars <+> "->" <+> nest 4 ( softline <> pretty expr))
+  pretty (App inner@(App {}) e3) = pretty inner <+> pretty e3
   pretty (App e1@(Lambda {}) e2) = pretty e1 <+> pretty e2
   pretty (App e1 e2) = parens (pretty e1 <+> pretty e2)
   pretty (Variable v) = pretty v
@@ -56,37 +55,41 @@ instance Arbitrary Expression where
     , Variable <$> arbitrary
     , Builtin <$> arbitrary
     ]
-  shrink e = []
+  shrink _ = []
 
+esize :: Expression -> Int
 esize Value {} = 1
-esize (Lambda var body) = 1 + esize body
+esize (Lambda _var body) = 1 + esize body
 esize (App f arg) = 1 + esize f + esize arg
 esize Variable {} = 1
 esize Builtin {} = 1
 
-
---data StackEntry = SEntry Expression deriving (Show, Eq)
-
-substitute :: Var -> Expression -> Expression -> Expression
-substitute vname expr e@(Value v) = e
-substitute vname expr e@(Lambda var body)
-  | vname == var = e
-  | otherwise    = Lambda var (substitute vname expr body)
-substitute vname expr (App f arg) = App (substitute vname expr f) (substitute vname expr arg)
-substitute vname expr e@(Variable v) = if v == vname then expr else e
-substitute vname expr e@(Builtin n) = e
+substitute :: [Var] -> [Expression] -> Expression -> Expression
+substitute [] [] e = e
+substitute _vnames _exprs e@(Value {}) = e
+substitute vnames exprs e@(Lambda vars body)
+  | null unbound = e
+  | otherwise    = Lambda vars (substitute unbound exprs body)
+    where
+      unbound = filter (\v -> not (elem v vars)) vnames
+substitute vnames exprs (App f arg) = App (substitute vnames exprs f) (substitute vnames exprs arg)
+substitute vnames exprs e@(Variable v) = 
+  let sub = filter (\x -> fst x == v) (zip vnames exprs)
+  in
+  if null sub then e else (snd . head) sub
+substitute _vname _expr e@(Builtin {}) = e
 
 compile :: Parser.Expression -> Expression
 compile (Parser.Value x) = Value x
-compile (Parser.Lambda var body) = Lambda (fromMaybe "" var) (compile body)
+compile (Parser.Lambda var body) = Lambda (maybeToList var) (compile body)
 compile (Parser.App f arg) =
   case arg of
     Nothing -> compile f
     Just v -> App (compile f) (compile v)
 compile (Parser.Variable v) = Variable v
-compile (Parser.Let name def body) = App (Lambda name (compile body)) (compile def)
+compile (Parser.Let name def body) = App (Lambda [name] (compile body)) (compile def)
 compile (Parser.LetRec name def body) =
-  App (Lambda name (compile body)) (App y (Lambda name (compile def)))
+  App (Lambda [name] (compile body)) (App y (Lambda [name] (compile def)))
   where
     y = compile $ Parser.parseCode "(\\f -> (\\x -> f (x x)) (\\x -> f (x x)))"
 compile (Parser.Builtin name args) = foldl App (Builtin name) $ map compile args
@@ -125,7 +128,6 @@ reduce e@(App _ _)  =
       result = instantiate op args
   in  traceShow ((reverse stack ++ [result])) $
     retree (reverse stack ++ [result])
-
 reduce e = e
 
 retree :: [Expression] -> Expression
@@ -135,7 +137,7 @@ retree [a,f] = App f a
 retree (a1:as) = App (retree as) a1
 
 instantiate :: Expression -> [Expression] -> Expression
-instantiate (Lambda var body) args = substitute var (head args) body
+instantiate (Lambda vars body) args = substitute vars args body
 instantiate (Builtin name) args = evalBuiltin name args
 
 
@@ -167,10 +169,6 @@ linearizeSpine :: Expression -> [Expression]
 linearizeSpine (App ( a@(App _ _)) arg) = arg : linearizeSpine a
 linearizeSpine (App f arg) = [arg, f]
 linearizeSpine e = [e]
-
-unwind :: Expression -> [Expression]
-unwind (App f arg) = undefined
-unwind e = [e]
 
 
 evalBuiltin :: String -> [Expression] -> Expression
